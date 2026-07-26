@@ -37,8 +37,13 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
-# ⚠️ IMPORTANTE: Coloque aqui o link público da imagem (ex: o link 'raw' do seu repositório GitHub)
-URL_IMAGEM_FIXA = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/image_2ee60b.png"
+# ⚠️ IMPORTANTE: Coloque aqui o link da sua imagem.
+URL_IMAGEM_FIXA = "https://github.com/SEU_USUARIO/SEU_REPOSITORIO/blob/main/image_2ee60b.png"
+
+# Trava de segurança: Corrige automaticamente a URL do GitHub para o formato "Raw" (direto),
+# que é o único formato que a API do LinkedIn consegue ler para renderizar a imagem.
+if "github.com" in URL_IMAGEM_FIXA and "/blob/" in URL_IMAGEM_FIXA:
+    URL_IMAGEM_FIXA = URL_IMAGEM_FIXA.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
 
 # Inicialização do Cliente Gemini
 if not GEMINI_API_KEY:
@@ -51,7 +56,7 @@ else:
     genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# SEMENTES TEMÁTICAS (30 DIAS)
+# SEMENTES TEMÁTICAS (LISTA EXPANDIDA PARA 45 DIAS)
 # ==========================================
 THEME_SEEDS = [
     {"tema": "Uso de IA para Modelos Preditivos de Arrecadação", "produto_nome": "Livro: Python para Análise de Dados"},
@@ -83,7 +88,23 @@ THEME_SEEDS = [
     {"tema": "Inteligência Geoespacial (GeoAI) na Atualização do IPTU", "produto_nome": "Mouse Sem Fio Logitech MX Master 3S"},
     {"tema": "Práticas DevOps e CI/CD na Estabilidade do Portal da Transparência", "produto_nome": "Livro: Manual de DevOps"},
     {"tema": "Machine Learning para Alocação Otimizada de RH no Serviço Público", "produto_nome": "Carregador Sem Fio Anker"},
-    {"tema": "Aprendizado por Reforço (Reinforcement Learning) no Timing de Licitações", "produto_nome": "Livro: Reinforcement Learning (Sutton)"}
+    {"tema": "Aprendizado por Reforço (Reinforcement Learning) no Timing de Licitações", "produto_nome": "Livro: Reinforcement Learning (Sutton)"},
+    # --- Novos itens adicionados para completar ciclo de 45 dias sem repetição ---
+    {"tema": "Modelos de Previsão de Gastos com Saúde Pública e IA", "produto_nome": "Livro: Deep Learning com Python"},
+    {"tema": "Análise de Risco em Parcerias Público-Privadas usando Machine Learning", "produto_nome": "Monitor Curvo 34 Polegadas"},
+    {"tema": "IA Generativa no Apoio à Redação de Editais de Licitação", "produto_nome": "Teclado Mecânico Keychron K8"},
+    {"tema": "Otimização de Frotas Públicas e Logística com Algoritmos Avançados", "produto_nome": "Mouse sem fio Logitech Pebble"},
+    {"tema": "O Potencial das Blockchains em Processos de Licitação Transparentes", "produto_nome": "Livro: Mastering Blockchain"},
+    {"tema": "NLP para Classificação e Resumo de Jurisprudência no TCU", "produto_nome": "Kindle Paperwhite 16GB"},
+    {"tema": "Identificação de Padrões de Corrupção Cruzando Dados com GraphDB", "produto_nome": "Livro: Graph Databases"},
+    {"tema": "Automatização e Previsibilidade no Pagamento de Precatórios", "produto_nome": "Cadeira Ergonômica de Escritório"},
+    {"tema": "Painéis de BI Dinâmicos para Monitoramento de Políticas Públicas", "produto_nome": "Elgato Stream Deck MK.2"},
+    {"tema": "Análise de Impacto Regulatório com Simulações de Monte Carlo", "produto_nome": "Livro: Estatística Prática para Data Science"},
+    {"tema": "Mineração de Processos (Process Mining) em Fluxos do SIAFI", "produto_nome": "Webcam Full HD 1080p"},
+    {"tema": "Automação Inteligente de Triagem de Demandas na Ouvidoria", "produto_nome": "Fone Headset com Cancelamento de Ruído"},
+    {"tema": "Auditoria Contínua em Folhas de Pagamento com Modelos de Classificação", "produto_nome": "SSD Externo Portátil 1TB"},
+    {"tema": "Cidades Inteligentes e Alocação Estratégica de Orçamento para IoT", "produto_nome": "Roteador Mesh Wi-Fi 6"},
+    {"tema": "People Analytics e Machine Learning no Serviço Público", "produto_nome": "Hub USB-C 7 em 1"}
 ]
 
 # Schema estruturado para Pydantic
