@@ -7,9 +7,21 @@ from email.message import EmailMessage
 from datetime import datetime
 from pydantic import BaseModel
 
-# Novo SDK do Gemini
-from google import genai
-from google.genai import types
+# ==========================================
+# IMPORTAÇÃO DO SDK DO GEMINI (COM TRATAMENTO DE ERRO)
+# ==========================================
+try:
+    from google import genai
+    from google.genai import types
+    USE_NEW_SDK = True
+except ImportError:
+    try:
+        import google.generativeai as genai
+        USE_NEW_SDK = False
+    except ImportError:
+        print("❌ ERRO: Nenhuma biblioteca do Gemini foi encontrada.")
+        print("💡 Execute: pip install google-genai ou pip install google-generativeai")
+        sys.exit(1)
 
 # ==========================================
 # CONFIGURAÇÕES DE AMBIENTE E APIs
@@ -24,12 +36,15 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
-# Configuração do novo Client do Gemini
-if GEMINI_API_KEY:
+# Inicialização do Cliente Gemini
+if not GEMINI_API_KEY:
+    print("❌ ERRO: GEMINI_API_KEY não configurada nas variáveis de ambiente.")
+    sys.exit(1)
+
+if USE_NEW_SDK:
     client = genai.Client(api_key=GEMINI_API_KEY)
 else:
-    print("❌ ERRO: GEMINI_API_KEY não configurada.")
-    sys.exit(1)
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
 # SEMENTES TEMÁTICAS (30 DIAS)
@@ -67,12 +82,17 @@ THEME_SEEDS = [
     {"tema": "Aprendizado por Reforço (Reinforcement Learning) no Timing de Licitações", "produto_nome": "Livro: Reinforcement Learning (Sutton)", "produto_url": "https://www.amazon.com.br/dp/0262039249?tag=SEU_LINK_AQUI"}
 ]
 
+# Schema estruturado para Pydantic
+class AuditResult(BaseModel):
+    aprovado: bool
+    motivo: str
+
 # ==========================================
 # AGENTES DE IA (GEMINI)
 # ==========================================
 
 def get_daily_seed():
-    """Seleciona o tema do dia baseado no dia do ano (Evita repetição em 30 dias)."""
+    """Seleciona o tema do dia baseado no dia do ano."""
     dia_do_ano = datetime.now().timetuple().tm_yday
     return THEME_SEEDS[dia_do_ano % len(THEME_SEEDS)]
 
@@ -96,16 +116,16 @@ def agente_gerador_texto(semente):
     Gere apenas o texto do post, sem aspas, sem título, pronto para copiar e colar.
     """
     
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt
-    )
-    return response.text.strip()
-
-# Usando Pydantic para definir o schema esperado da resposta (Nova funcionalidade do SDK)
-class AuditResult(BaseModel):
-    aprovado: bool
-    motivo: str
+    if USE_NEW_SDK:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
+        return response.text.strip()
+    else:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
+        return response.text.strip()
 
 def agente_auditor_antifake(texto_post):
     """Agente 2: Revisa o texto em busca de alucinações, mentiras ou viés político."""
@@ -127,19 +147,25 @@ def agente_auditor_antifake(texto_post):
     """
     
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=AuditResult,
-                temperature=0.1
+        if USE_NEW_SDK:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=AuditResult,
+                    temperature=0.1
+                )
             )
-        )
-        
-        # A resposta será um JSON em formato string, garantido pelo schema
-        resultado = json.loads(response.text)
-        return resultado
+            return json.loads(response.text)
+        else:
+            model = genai.GenerativeModel(
+                'gemini-2.5-flash',
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = model.generate_content(prompt)
+            return json.loads(response.text)
+            
     except Exception as e:
         return {"aprovado": False, "motivo": f"Erro ao processar auditoria da IA: {str(e)}"}
 
@@ -148,7 +174,7 @@ def agente_auditor_antifake(texto_post):
 # ==========================================
 
 def create_linkedin_payload(texto_final, original_url, author_urn):
-    """Monta o payload JSON para o LinkedIn no formato Article (Gera o Card da Amazon)."""
+    """Monta o payload JSON para o LinkedIn no formato Article."""
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
@@ -232,14 +258,14 @@ if __name__ == "__main__":
         enviar_email_notificacao("FALHA CRÍTICA", "Erro de Inicialização", "Abortado.", erro_msg=erro_msg)
         sys.exit(1)
         
-    # 1. Seleciona a semente (garante não repetição em 30 dias)
+    # 1. Seleciona a semente
     semente = get_daily_seed()
     print(f"🎯 Tema Semente do Dia: {semente['tema']}")
     
     # 2. Agente 1: Gera o Texto
     texto_gerado = agente_gerador_texto(semente)
     
-    # 3. Agente 2: Audita o Texto (Anti-alucinação)
+    # 3. Agente 2: Audita o Texto
     resultado_auditoria = agente_auditor_antifake(texto_gerado)
     
     if not resultado_auditoria.get("aprovado", False):
@@ -250,7 +276,7 @@ if __name__ == "__main__":
             texto_gerado, 
             auditoria_detalhes=resultado_auditoria.get('motivo')
         )
-        sys.exit(1) # Aborta a execução para não postar
+        sys.exit(1)
         
     print("✅ Aprovado pelo Auditor. Preparando envio ao LinkedIn...")
     
