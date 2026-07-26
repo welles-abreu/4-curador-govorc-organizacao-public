@@ -20,4 +20,4 @@ name: "Publicador Diário: Agente Multi-IA LinkedIn"on:schedule:# O Cron do GitH
       LINKEDIN_URN_ID: ${{ secrets.LINKEDIN_URN_ID }}
       SENHA_APP_GMAIL: ${{ secrets.SENHA_APP_GMAIL }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-    run: python linkedin_bot.py
+    run: curador-govorc-organizacao.py
