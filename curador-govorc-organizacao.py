@@ -5,8 +5,11 @@ import requests
 import smtplib
 from email.message import EmailMessage
 from datetime import datetime
-import google.generativeai as genai
-import typing_extensions as typing
+from pydantic import BaseModel
+
+# Novo SDK do Gemini
+from google import genai
+from google.genai import types
 
 # ==========================================
 # CONFIGURAÇÕES DE AMBIENTE E APIs
@@ -21,9 +24,9 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
-# Configuração do Gemini
+# Configuração do novo Client do Gemini
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=GEMINI_API_KEY)
 else:
     print("❌ ERRO: GEMINI_API_KEY não configurada.")
     sys.exit(1)
@@ -31,7 +34,6 @@ else:
 # ==========================================
 # SEMENTES TEMÁTICAS (30 DIAS)
 # ==========================================
-# O bot usa isso apenas como "inspiração" diária. O texto será inédito.
 THEME_SEEDS = [
     {"tema": "Uso de IA para Modelos Preditivos de Arrecadação", "produto_nome": "Livro: Python para Análise de Dados", "produto_url": "https://www.amazon.com.br/dp/B07P882X4G?tag=SEU_LINK_AQUI"},
     {"tema": "Detecção de Anomalias e Fraudes em Licitações com Machine Learning", "produto_nome": "Monitor LG Ultrawide 29'' IPS", "produto_url": "https://www.amazon.com.br/dp/B095198J2Y?tag=SEU_LINK_AQUI"},
@@ -94,12 +96,14 @@ def agente_gerador_texto(semente):
     Gere apenas o texto do post, sem aspas, sem título, pronto para copiar e colar.
     """
     
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt
+    )
     return response.text.strip()
 
-# Estrutura JSON esperada da auditoria
-class AuditResult(typing.TypedDict):
+# Usando Pydantic para definir o schema esperado da resposta (Nova funcionalidade do SDK)
+class AuditResult(BaseModel):
     aprovado: bool
     motivo: str
 
@@ -111,7 +115,7 @@ def agente_auditor_antifake(texto_post):
     Você é um Auditor Sênior de Conformidade e Fact-Checker do Governo.
     Sua missão é ler o texto abaixo, que será postado no LinkedIn, e avaliá-lo segundo 3 critérios:
     1. Viés Político: Há algum elogio ou crítica a políticos, governos específicos ou partidos? (Deve ser 100% neutro).
-    2. Alucinação (Fake News): O texto cita leis que não existem, ou estatísticas inventadas exatas (ex: "a IA economizou 34.5% no orçamento") sem fonte? (Conceitos teóricos gerais de IA e governança são permitidos).
+    2. Alucinação (Fake News): O texto cita leis que não existem, ou estatísticas inventadas exatas sem fonte? (Conceitos teóricos gerais de IA e governança são permitidos).
     3. Profissionalismo: A linguagem é técnica e adequada para o LinkedIn?
     
     Texto a ser analisado:
@@ -119,20 +123,21 @@ def agente_auditor_antifake(texto_post):
     {texto_post}
     '''
     
-    Responda EXCLUSIVAMENTE em formato JSON. Se o texto violar as regras, "aprovado" deve ser false e o "motivo" deve explicar a violação.
+    Se o texto violar as regras, "aprovado" deve ser false e o "motivo" deve explicar a violação.
     """
     
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=AuditResult,
-            temperature=0.1 # Temperatura baixa para garantir rigor na auditoria
-        )
-    )
-    
     try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=AuditResult,
+                temperature=0.1
+            )
+        )
+        
+        # A resposta será um JSON em formato string, garantido pelo schema
         resultado = json.loads(response.text)
         return resultado
     except Exception as e:
