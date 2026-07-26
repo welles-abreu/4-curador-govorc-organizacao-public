@@ -37,8 +37,8 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
-# Paleta de 10 cores escuras/profissionais para a imagem dinâmica (Rotaciona com os dias)
-PALETA_CORES_IMG = ['1e293b', '172554', '042f2e', '312e81', '4a044e', '450a0a', '022c22', '0f172a', '1e3a8a', '134e4a']
+# ⚠️ IMPORTANTE: Coloque aqui o link público da imagem (ex: o link 'raw' do seu repositório GitHub)
+URL_IMAGEM_FIXA = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/image_2ee60b.png"
 
 # Inicialização do Cliente Gemini
 if not GEMINI_API_KEY:
@@ -177,8 +177,8 @@ def agente_auditor_antifake(texto_post):
 # INTEGRAÇÃO COM LINKEDIN E E-MAIL
 # ==========================================
 
-def create_linkedin_payload(texto_final, original_url, author_urn, thumbnail_url):
-    """Monta o payload JSON para o LinkedIn injetando miniatura customizada."""
+def create_linkedin_payload(texto_final, original_url, author_urn, thumbnail_url, product_name):
+    """Monta o payload JSON para o LinkedIn injetando miniatura e título customizados."""
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
@@ -192,7 +192,11 @@ def create_linkedin_payload(texto_final, original_url, author_urn, thumbnail_url
                     {
                         "status": "READY",
                         "originalUrl": original_url,
-                        # Força o LinkedIn a exibir esta imagem no card em vez de tentar ler do site
+                        # Isso substitui o texto "Link da internet" pelo nome do produto
+                        "title": {
+                            "text": product_name
+                        },
+                        # Força a exibição da sua imagem customizada
                         "thumbnails": [
                             {
                                 "url": thumbnail_url
@@ -268,18 +272,18 @@ if __name__ == "__main__":
     semente = get_daily_seed()
     print(f"🎯 Tema Semente do Dia: {semente['tema']}")
     
-    # Prepara o link de pesquisa da Amazon (soluciona o problema de leitura do LinkedIn/Amazon bloqueando)
+    # Prepara o link de pesquisa da Amazon
     termo_busca = urllib.parse.quote_plus(semente['produto_nome'])
     url_pesquisa_amazon = f"https://www.amazon.com.br/s?k={termo_busca}&tag=SEU_LINK_AQUI"
     
     # 2. Agente 1: Gera o Texto
     texto_gerado = agente_gerador_texto(semente, url_pesquisa_amazon)
     
-    # Insere o prefixo com a data de hoje estritamente antes de tudo
+    # Insere o prefixo com a data de hoje
     data_hoje_formatada = datetime.now().strftime("%d/%m/%Y")
     texto_final_com_prefixo = f"Curadoria sobre Governança Orçamentária do dia ({data_hoje_formatada}):\n\n{texto_gerado}"
     
-    # 3. Agente 2: Audita o Texto (agora com o prefixo)
+    # 3. Agente 2: Audita o Texto
     resultado_auditoria = agente_auditor_antifake(texto_final_com_prefixo)
     
     if not resultado_auditoria.get("aprovado", False):
@@ -289,15 +293,15 @@ if __name__ == "__main__":
         
     print("✅ Aprovado pelo Auditor. Preparando envio ao LinkedIn...")
     
-    # Cria uma URL de imagem dinâmica baseada no dia do ano usando placehold.co
-    dia_do_ano = datetime.now().timetuple().tm_yday
-    cor_selecionada = PALETA_CORES_IMG[dia_do_ano % len(PALETA_CORES_IMG)]
+    # 4. Montagem e Envio ao LinkedIn (passando também o nome do produto para o título do card)
+    payload = create_linkedin_payload(
+        texto_final_com_prefixo, 
+        url_pesquisa_amazon, 
+        AUTHOR_URN, 
+        URL_IMAGEM_FIXA, 
+        semente['produto_nome']  # Isso vai substituir o "Link da internet"
+    )
     
-    # A imagem gerada será um bloco de cor sólida elegante com o título "Governança Orçamentária" no centro
-    url_thumbnail = f"https://placehold.co/1200x627/{cor_selecionada}/FFFFFF/png?text=Governan%C3%A7a%0AOr%C3%A7ament%C3%A1ria"
-    
-    # 4. Montagem e Envio ao LinkedIn (passando a url de pesquisa e o thumbnail)
-    payload = create_linkedin_payload(texto_final_com_prefixo, url_pesquisa_amazon, AUTHOR_URN, url_thumbnail)
     post_id, erro_linkedin = post_to_linkedin(payload, ACCESS_TOKEN)
     
     # 5. Conclusão e Notificação
