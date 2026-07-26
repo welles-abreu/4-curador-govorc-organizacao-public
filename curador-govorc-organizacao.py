@@ -3,6 +3,7 @@ import sys
 import json
 import requests
 import smtplib
+import urllib.parse
 from email.message import EmailMessage
 from datetime import datetime
 from pydantic import BaseModel
@@ -36,6 +37,9 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
+# Paleta de 10 cores escuras/profissionais para a imagem dinâmica (Rotaciona com os dias)
+PALETA_CORES_IMG = ['1e293b', '172554', '042f2e', '312e81', '4a044e', '450a0a', '022c22', '0f172a', '1e3a8a', '134e4a']
+
 # Inicialização do Cliente Gemini
 if not GEMINI_API_KEY:
     print("❌ ERRO: GEMINI_API_KEY não configurada nas variáveis de ambiente.")
@@ -50,36 +54,36 @@ else:
 # SEMENTES TEMÁTICAS (30 DIAS)
 # ==========================================
 THEME_SEEDS = [
-    {"tema": "Uso de IA para Modelos Preditivos de Arrecadação", "produto_nome": "Livro: Python para Análise de Dados", "produto_url": "https://www.amazon.com.br/dp/B07P882X4G?tag=SEU_LINK_AQUI"},
-    {"tema": "Detecção de Anomalias e Fraudes em Licitações com Machine Learning", "produto_nome": "Monitor LG Ultrawide 29'' IPS", "produto_url": "https://www.amazon.com.br/dp/B095198J2Y?tag=SEU_LINK_AQUI"},
-    {"tema": "Processamento de Linguagem Natural (NLP) analisando o PPA e LDO", "produto_nome": "Livro: Data Science para Negócios", "produto_url": "https://www.amazon.com.br/dp/8576089726?tag=SEU_LINK_AQUI"},
-    {"tema": "Automação de Pipelines de Dados (ETL) na Execução Financeira Pública", "produto_nome": "Teclado Ergonômico Logitech Wave Keys", "produto_url": "https://www.amazon.com.br/dp/B0CKD47X8Y?tag=SEU_LINK_AQUI"},
-    {"tema": "Otimização Algorítmica de Portfólio de Obras Públicas", "produto_nome": "Livro: Rápido e Devagar - Daniel Kahneman", "produto_url": "https://www.amazon.com.br/dp/853900383X?tag=SEU_LINK_AQUI"},
-    {"tema": "Categorização Automatizada de Despesas Públicas com IA", "produto_nome": "Fone de Ouvido Anker Soundcore Life Q30", "produto_url": "https://www.amazon.com.br/dp/B08HMWZBXC?tag=SEU_LINK_AQUI"},
-    {"tema": "Visão Computacional e Drones na Medição de Contratos de Obras", "produto_nome": "Livro: Inteligência Artificial - Uma Abordagem Moderna", "produto_url": "https://www.amazon.com.br/dp/8535237013?tag=SEU_LINK_AQUI"},
-    {"tema": "Análise de Sentimentos em Consultas Públicas do Orçamento Participativo", "produto_nome": "Suporte Articulado de Mesa para Monitor", "produto_url": "https://www.amazon.com.br/dp/B0765RFSZ7?tag=SEU_LINK_AQUI"},
-    {"tema": "Smart Contracts e Blockchain para Repasses Constitucionais", "produto_nome": "Livro: A Quarta Revolução Industrial", "produto_url": "https://www.amazon.com.br/dp/8539007428?tag=SEU_LINK_AQUI"},
-    {"tema": "Redes Neurais na Previsão de Fluxo de Caixa do Tesouro", "produto_nome": "SSD Kingston NV2 1TB NVMe M.2", "produto_url": "https://www.amazon.com.br/dp/B0BBWH1R8H?tag=SEU_LINK_AQUI"},
-    {"tema": "Bancos de Dados em Grafo (GraphDB) para Detectar Conluios", "produto_nome": "Livro: Engenharia de Confiabilidade do Google", "produto_url": "https://www.amazon.com.br/dp/857522543X?tag=SEU_LINK_AQUI"},
-    {"tema": "Gêmeos Digitais (Digital Twins) Simulando o Orçamento Público", "produto_nome": "Mouse Ergonômico Vertical Logitech MX", "produto_url": "https://www.amazon.com.br/dp/B07DKL44ZZ?tag=SEU_LINK_AQUI"},
-    {"tema": "Agentes LLM em Pré-Auditoria de Conformidade (Tribunais de Contas)", "produto_nome": "Livro: Clean Architecture", "produto_url": "https://www.amazon.com.br/dp/8550804606?tag=SEU_LINK_AQUI"},
-    {"tema": "Clustering de Demandas para Otimização de Compras Governamentais", "produto_nome": "Luminária de Mesa LED Baseus Screenbar", "produto_url": "https://www.amazon.com.br/dp/B08XBM7J3V?tag=SEU_LINK_AQUI"},
-    {"tema": "Machine Learning para Previsão e Combate à Evasão Fiscal", "produto_nome": "Livro: Mãos à Obra: Aprendizado de Máquina", "produto_url": "https://www.amazon.com.br/dp/8550811777?tag=SEU_LINK_AQUI"},
-    {"tema": "Aprendizado Federado (Federated Learning) entre Entes Federativos", "produto_nome": "Apple iPad Air", "produto_url": "https://www.amazon.com.br/dp/B09V3JG7B9?tag=SEU_LINK_AQUI"},
-    {"tema": "RPA (Robotic Process Automation) na Conciliação Bancária do SIAFI", "produto_nome": "Livro: Automatize Tarefas Maçantes com Python", "produto_url": "https://www.amazon.com.br/dp/8575228129?tag=SEU_LINK_AQUI"},
-    {"tema": "Transparência Algorítmica e Explainable AI (XAI) nos Gastos Públicos", "produto_nome": "Livro: Armas de Destruição Matemática", "produto_url": "https://www.amazon.com.br/dp/8532532456?tag=SEU_LINK_AQUI"},
-    {"tema": "Arquitetura Data Mesh: Descentralizando Dados no Governo", "produto_nome": "Livro: Data Mesh - Zhamak Dehghani", "produto_url": "https://www.amazon.com.br/dp/1492092398?tag=SEU_LINK_AQUI"},
-    {"tema": "Manutenção Preditiva de Ativos Públicos com IoT e IA", "produto_nome": "Monitor Dell 27'' 4K UHD", "produto_url": "https://www.amazon.com.br/dp/B09D8Q1K96?tag=SEU_LINK_AQUI"},
-    {"tema": "Cibersegurança e Defesa Autônoma (IA) em Sistemas de Execução Orçamentária", "produto_nome": "Chave de Segurança Yubico YubiKey", "produto_url": "https://www.amazon.com.br/dp/B07HBD71HL?tag=SEU_LINK_AQUI"},
-    {"tema": "Data Storytelling na Prestação de Contas ao Cidadão", "produto_nome": "Livro: Storytelling com Dados", "produto_url": "https://www.amazon.com.br/dp/8550804681?tag=SEU_LINK_AQUI"},
-    {"tema": "Modelagem de Microdados para Otimização da Dívida Pública", "produto_nome": "Mesa com Regulagem de Altura Elétrica", "produto_url": "https://www.amazon.com.br/dp/B09JGG2BQR?tag=SEU_LINK_AQUI"},
-    {"tema": "APIs e Arquitetura de Open Finance aplicadas à Arrecadação", "produto_nome": "Livro: A Era das Criptomoedas", "produto_url": "https://www.amazon.com.br/dp/8537816825?tag=SEU_LINK_AQUI"},
-    {"tema": "Survival Analysis (Análise de Sobrevivência) em Projetos Sociais", "produto_nome": "Mousepad Gamer Extra Grande Corsair", "produto_url": "https://www.amazon.com.br/dp/B01798VS4C?tag=SEU_LINK_AQUI"},
-    {"tema": "Chatbots Jurídicos baseados em LLMs para Ordenadores de Despesa", "produto_nome": "Teclado Mecânico Keychron K2", "produto_url": "https://www.amazon.com.br/dp/B07Y9Y69N7?tag=SEU_LINK_AQUI"},
-    {"tema": "Inteligência Geoespacial (GeoAI) na Atualização do IPTU", "produto_nome": "Mouse Sem Fio Logitech MX Master 3S", "produto_url": "https://www.amazon.com.br/dp/B0B11QNDBD?tag=SEU_LINK_AQUI"},
-    {"tema": "Práticas DevOps e CI/CD na Estabilidade do Portal da Transparência", "produto_nome": "Livro: Manual de DevOps", "produto_url": "https://www.amazon.com.br/dp/8550802492?tag=SEU_LINK_AQUI"},
-    {"tema": "Machine Learning para Alocação Otimizada de RH no Serviço Público", "produto_nome": "Carregador Sem Fio Anker", "produto_url": "https://www.amazon.com.br/dp/B07THHQMHM?tag=SEU_LINK_AQUI"},
-    {"tema": "Aprendizado por Reforço (Reinforcement Learning) no Timing de Licitações", "produto_nome": "Livro: Reinforcement Learning (Sutton)", "produto_url": "https://www.amazon.com.br/dp/0262039249?tag=SEU_LINK_AQUI"}
+    {"tema": "Uso de IA para Modelos Preditivos de Arrecadação", "produto_nome": "Livro: Python para Análise de Dados"},
+    {"tema": "Detecção de Anomalias e Fraudes em Licitações com Machine Learning", "produto_nome": "Monitor LG Ultrawide 29'' IPS"},
+    {"tema": "Processamento de Linguagem Natural (NLP) analisando o PPA e LDO", "produto_nome": "Livro: Data Science para Negócios"},
+    {"tema": "Automação de Pipelines de Dados (ETL) na Execução Financeira Pública", "produto_nome": "Teclado Ergonômico Logitech Wave Keys"},
+    {"tema": "Otimização Algorítmica de Portfólio de Obras Públicas", "produto_nome": "Livro: Rápido e Devagar - Daniel Kahneman"},
+    {"tema": "Categorização Automatizada de Despesas Públicas com IA", "produto_nome": "Fone de Ouvido Anker Soundcore Life Q30"},
+    {"tema": "Visão Computacional e Drones na Medição de Contratos de Obras", "produto_nome": "Livro: Inteligência Artificial - Uma Abordagem Moderna"},
+    {"tema": "Análise de Sentimentos em Consultas Públicas do Orçamento Participativo", "produto_nome": "Suporte Articulado de Mesa para Monitor"},
+    {"tema": "Smart Contracts e Blockchain para Repasses Constitucionais", "produto_nome": "Livro: A Quarta Revolução Industrial"},
+    {"tema": "Redes Neurais na Previsão de Fluxo de Caixa do Tesouro", "produto_nome": "SSD Kingston NV2 1TB NVMe M.2"},
+    {"tema": "Bancos de Dados em Grafo (GraphDB) para Detectar Conluios", "produto_nome": "Livro: Engenharia de Confiabilidade do Google"},
+    {"tema": "Gêmeos Digitais (Digital Twins) Simulando o Orçamento Público", "produto_nome": "Mouse Ergonômico Vertical Logitech MX"},
+    {"tema": "Agentes LLM em Pré-Auditoria de Conformidade (Tribunais de Contas)", "produto_nome": "Livro: Clean Architecture"},
+    {"tema": "Clustering de Demandas para Otimização de Compras Governamentais", "produto_nome": "Luminária de Mesa LED Baseus Screenbar"},
+    {"tema": "Machine Learning para Previsão e Combate à Evasão Fiscal", "produto_nome": "Livro: Mãos à Obra: Aprendizado de Máquina"},
+    {"tema": "Aprendizado Federado (Federated Learning) entre Entes Federativos", "produto_nome": "Apple iPad Air"},
+    {"tema": "RPA (Robotic Process Automation) na Conciliação Bancária do SIAFI", "produto_nome": "Livro: Automatize Tarefas Maçantes com Python"},
+    {"tema": "Transparência Algorítmica e Explainable AI (XAI) nos Gastos Públicos", "produto_nome": "Livro: Armas de Destruição Matemática"},
+    {"tema": "Arquitetura Data Mesh: Descentralizando Dados no Governo", "produto_nome": "Livro: Data Mesh - Zhamak Dehghani"},
+    {"tema": "Manutenção Preditiva de Ativos Públicos com IoT e IA", "produto_nome": "Monitor Dell 27'' 4K UHD"},
+    {"tema": "Cibersegurança e Defesa Autônoma (IA) em Sistemas de Execução Orçamentária", "produto_nome": "Chave de Segurança Yubico YubiKey"},
+    {"tema": "Data Storytelling na Prestação de Contas ao Cidadão", "produto_nome": "Livro: Storytelling com Dados"},
+    {"tema": "Modelagem de Microdados para Otimização da Dívida Pública", "produto_nome": "Mesa com Regulagem de Altura Elétrica"},
+    {"tema": "APIs e Arquitetura de Open Finance aplicadas à Arrecadação", "produto_nome": "Livro: A Era das Criptomoedas"},
+    {"tema": "Survival Analysis (Análise de Sobrevivência) em Projetos Sociais", "produto_nome": "Mousepad Gamer Extra Grande Corsair"},
+    {"tema": "Chatbots Jurídicos baseados em LLMs para Ordenadores de Despesa", "produto_nome": "Teclado Mecânico Keychron K2"},
+    {"tema": "Inteligência Geoespacial (GeoAI) na Atualização do IPTU", "produto_nome": "Mouse Sem Fio Logitech MX Master 3S"},
+    {"tema": "Práticas DevOps e CI/CD na Estabilidade do Portal da Transparência", "produto_nome": "Livro: Manual de DevOps"},
+    {"tema": "Machine Learning para Alocação Otimizada de RH no Serviço Público", "produto_nome": "Carregador Sem Fio Anker"},
+    {"tema": "Aprendizado por Reforço (Reinforcement Learning) no Timing de Licitações", "produto_nome": "Livro: Reinforcement Learning (Sutton)"}
 ]
 
 # Schema estruturado para Pydantic
@@ -96,7 +100,7 @@ def get_daily_seed():
     dia_do_ano = datetime.now().timetuple().tm_yday
     return THEME_SEEDS[dia_do_ano % len(THEME_SEEDS)]
 
-def agente_gerador_texto(semente):
+def agente_gerador_texto(semente, url_pesquisa):
     """Agente 1: Cria o texto do post do zero baseado na semente."""
     print("✍️ Agente Gerador: Escrevendo rascunho inédito...")
     
@@ -110,8 +114,8 @@ def agente_gerador_texto(semente):
     3. Foco estritamente técnico, científico, focando na máquina pública, alocação de recursos e eficiência.
     4. ZERO viés político partidário ou juízo de valor sobre governos. Totalmente neutro.
     5. Uso moderado e elegante de emojis.
-    6. No final, adicione o seguinte PS exato (incluindo o link):
-    "PS: Para aprofundar ou melhorar seu setup de análise, recomendo: {semente['produto_nome']}. 🛒 Confira: {semente['produto_url']}"
+    6. No final, adicione o seguinte PS exato (incluindo o link de busca formatado):
+    "PS: Para aprofundar ou melhorar seu setup de análise, recomendo: {semente['produto_nome']}. 🛒 Confira na Amazon: {url_pesquisa}"
     
     Gere apenas o texto do post, sem aspas, sem título, pronto para copiar e colar.
     """
@@ -173,8 +177,8 @@ def agente_auditor_antifake(texto_post):
 # INTEGRAÇÃO COM LINKEDIN E E-MAIL
 # ==========================================
 
-def create_linkedin_payload(texto_final, original_url, author_urn):
-    """Monta o payload JSON para o LinkedIn no formato Article."""
+def create_linkedin_payload(texto_final, original_url, author_urn, thumbnail_url):
+    """Monta o payload JSON para o LinkedIn injetando miniatura customizada."""
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
@@ -187,7 +191,13 @@ def create_linkedin_payload(texto_final, original_url, author_urn):
                 "media": [
                     {
                         "status": "READY",
-                        "originalUrl": original_url
+                        "originalUrl": original_url,
+                        # Força o LinkedIn a exibir esta imagem no card em vez de tentar ler do site
+                        "thumbnails": [
+                            {
+                                "url": thumbnail_url
+                            }
+                        ]
                     }
                 ]
             }
@@ -216,23 +226,20 @@ def post_to_linkedin(payload, access_token):
 def enviar_email_notificacao(status, assunto_tema, conteudo, auditoria_detalhes="", erro_msg=""):
     """Envia um e-mail com o status da execução."""
     if not SENHA_APP_GMAIL:
-        print("⚠️ SENHA_APP_GMAIL não encontrada. O e-mail de relatório não será enviado.")
+        print("⚠️ SENHA_APP_GMAIL não encontrada. O e-mail não será enviado.")
         return
 
     msg = EmailMessage()
-    msg['Subject'] = f"[{status}] Relatório de Atividade LinkedIn - {AGENT_NAME}"
+    msg['Subject'] = f"[{status}] Relatório LinkedIn - {AGENT_NAME}"
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = EMAIL_DESTINO
 
-    corpo = f"Olá,\n\nAqui é o seu {AGENT_NAME}.\n\nStatus da Execução: {status}\nTema Semente: {assunto_tema}\n\n"
-    
+    corpo = f"Olá,\n\nAqui é o seu {AGENT_NAME}.\n\nStatus: {status}\nTema Semente: {assunto_tema}\n\n"
     if auditoria_detalhes:
         corpo += f"🔎 Detalhes da Auditoria:\n{auditoria_detalhes}\n\n"
-        
     corpo += f"📝 Conteúdo:\n--------------------------------------------------\n{conteudo}\n--------------------------------------------------\n"
-    
     if erro_msg:
-        corpo += f"\n❌ Detalhes do Erro Técnico:\n{erro_msg}"
+        corpo += f"\n❌ Erro Técnico:\n{erro_msg}"
         
     msg.set_content(corpo)
 
@@ -255,40 +262,49 @@ if __name__ == "__main__":
     if not ACCESS_TOKEN or not AUTHOR_URN:
         erro_msg = "Credenciais do LinkedIn não configuradas."
         print(f"❌ ERRO: {erro_msg}")
-        enviar_email_notificacao("FALHA CRÍTICA", "Erro de Inicialização", "Abortado.", erro_msg=erro_msg)
         sys.exit(1)
         
-    # 1. Seleciona a semente
+    # 1. Seleciona a semente e prepara as variáveis do dia
     semente = get_daily_seed()
     print(f"🎯 Tema Semente do Dia: {semente['tema']}")
     
-    # 2. Agente 1: Gera o Texto
-    texto_gerado = agente_gerador_texto(semente)
+    # Prepara o link de pesquisa da Amazon (soluciona o problema de leitura do LinkedIn/Amazon bloqueando)
+    termo_busca = urllib.parse.quote_plus(semente['produto_nome'])
+    url_pesquisa_amazon = f"https://www.amazon.com.br/s?k={termo_busca}&tag=SEU_LINK_AQUI"
     
-    # 3. Agente 2: Audita o Texto
-    resultado_auditoria = agente_auditor_antifake(texto_gerado)
+    # 2. Agente 1: Gera o Texto
+    texto_gerado = agente_gerador_texto(semente, url_pesquisa_amazon)
+    
+    # Insere o prefixo com a data de hoje estritamente antes de tudo
+    data_hoje_formatada = datetime.now().strftime("%d/%m/%Y")
+    texto_final_com_prefixo = f"Curadoria sobre Governança Orçamentária do dia ({data_hoje_formatada}):\n\n{texto_gerado}"
+    
+    # 3. Agente 2: Audita o Texto (agora com o prefixo)
+    resultado_auditoria = agente_auditor_antifake(texto_final_com_prefixo)
     
     if not resultado_auditoria.get("aprovado", False):
         print(f"🛑 REPROVADO PELO AUDITOR: {resultado_auditoria.get('motivo')}")
-        enviar_email_notificacao(
-            "BLOQUEADO PELA AUDITORIA", 
-            semente['tema'], 
-            texto_gerado, 
-            auditoria_detalhes=resultado_auditoria.get('motivo')
-        )
+        enviar_email_notificacao("BLOQUEADO PELA AUDITORIA", semente['tema'], texto_final_com_prefixo, auditoria_detalhes=resultado_auditoria.get('motivo'))
         sys.exit(1)
         
     print("✅ Aprovado pelo Auditor. Preparando envio ao LinkedIn...")
     
-    # 4. Montagem e Envio ao LinkedIn
-    payload = create_linkedin_payload(texto_gerado, semente['produto_url'], AUTHOR_URN)
+    # Cria uma URL de imagem dinâmica baseada no dia do ano usando placehold.co
+    dia_do_ano = datetime.now().timetuple().tm_yday
+    cor_selecionada = PALETA_CORES_IMG[dia_do_ano % len(PALETA_CORES_IMG)]
+    
+    # A imagem gerada será um bloco de cor sólida elegante com o título "Governança Orçamentária" no centro
+    url_thumbnail = f"https://placehold.co/1200x627/{cor_selecionada}/FFFFFF/png?text=Governan%C3%A7a%0AOr%C3%A7ament%C3%A1ria"
+    
+    # 4. Montagem e Envio ao LinkedIn (passando a url de pesquisa e o thumbnail)
+    payload = create_linkedin_payload(texto_final_com_prefixo, url_pesquisa_amazon, AUTHOR_URN, url_thumbnail)
     post_id, erro_linkedin = post_to_linkedin(payload, ACCESS_TOKEN)
     
     # 5. Conclusão e Notificação
     if post_id:
         print(f"🚀 Post publicado com sucesso! ID: {post_id}")
-        enviar_email_notificacao("SUCESSO", semente['tema'], texto_gerado, auditoria_detalhes="O texto passou no crivo técnico de alucinação e viés.")
+        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes="Texto aprovado.")
     else:
-        print(f"❌ Falha ao publicar na API do LinkedIn: {erro_linkedin}")
-        enviar_email_notificacao("ERRO NO LINKEDIN", semente['tema'], texto_gerado, erro_msg=erro_linkedin)
+        print(f"❌ Falha ao publicar: {erro_linkedin}")
+        enviar_email_notificacao("ERRO NO LINKEDIN", semente['tema'], texto_final_com_prefixo, erro_msg=erro_linkedin)
         sys.exit(1)
