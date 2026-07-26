@@ -94,7 +94,7 @@ def agente_gerador_texto(semente):
     Gere apenas o texto do post, sem aspas, sem título, pronto para copiar e colar.
     """
     
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(prompt)
     return response.text.strip()
 
