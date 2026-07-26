@@ -37,13 +37,8 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
-# ⚠️ IMPORTANTE: Coloque aqui o link da sua imagem.
-URL_IMAGEM_FIXA = "https://github.com/SEU_USUARIO/SEU_REPOSITORIO/blob/main/image_2ee60b.png"
-
-# Trava de segurança: Corrige automaticamente a URL do GitHub para o formato "Raw" (direto),
-# que é o único formato que a API do LinkedIn consegue ler para renderizar a imagem.
-if "github.com" in URL_IMAGEM_FIXA and "/blob/" in URL_IMAGEM_FIXA:
-    URL_IMAGEM_FIXA = URL_IMAGEM_FIXA.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+# ⚠️ URL RAW EXATA DA IMAGEM NO SEU GITHUB (Isso garante que o LinkedIn consiga ler a imagem)
+URL_IMAGEM_FIXA = "https://raw.githubusercontent.com/welles-abreu/4-curador-govorc-organizacao-public/main/URL_IMAGEM_FIX.png"
 
 # Inicialização do Cliente Gemini
 if not GEMINI_API_KEY:
@@ -89,7 +84,6 @@ THEME_SEEDS = [
     {"tema": "Práticas DevOps e CI/CD na Estabilidade do Portal da Transparência", "produto_nome": "Livro: Manual de DevOps"},
     {"tema": "Machine Learning para Alocação Otimizada de RH no Serviço Público", "produto_nome": "Carregador Sem Fio Anker"},
     {"tema": "Aprendizado por Reforço (Reinforcement Learning) no Timing de Licitações", "produto_nome": "Livro: Reinforcement Learning (Sutton)"},
-    # --- Novos itens adicionados para completar ciclo de 45 dias sem repetição ---
     {"tema": "Modelos de Previsão de Gastos com Saúde Pública e IA", "produto_nome": "Livro: Deep Learning com Python"},
     {"tema": "Análise de Risco em Parcerias Público-Privadas usando Machine Learning", "produto_nome": "Monitor Curvo 34 Polegadas"},
     {"tema": "IA Generativa no Apoio à Redação de Editais de Licitação", "produto_nome": "Teclado Mecânico Keychron K8"},
@@ -117,9 +111,14 @@ class AuditResult(BaseModel):
 # ==========================================
 
 def get_daily_seed():
-    """Seleciona o tema do dia baseado no dia do ano."""
-    dia_do_ano = datetime.now().timetuple().tm_yday
-    return THEME_SEEDS[dia_do_ano % len(THEME_SEEDS)]
+    """
+    Seleciona o tema de forma sequencial com base na data (garante a rotação a cada 24 horas).
+    Só irá repetir o tema após 45 dias ininterruptos de postagem.
+    """
+    dias_desde_o_inicio = datetime.now().toordinal()
+    indice = dias_desde_o_inicio % len(THEME_SEEDS)
+    print(f"🔄 Controle de Repetição: Usando índice {indice} de {len(THEME_SEEDS)} (Este índice avança automaticamente 1 vez por dia).")
+    return THEME_SEEDS[indice]
 
 def agente_gerador_texto(semente, url_pesquisa):
     """Agente 1: Cria o texto do post do zero baseado na semente."""
@@ -213,11 +212,9 @@ def create_linkedin_payload(texto_final, original_url, author_urn, thumbnail_url
                     {
                         "status": "READY",
                         "originalUrl": original_url,
-                        # Isso substitui o texto "Link da internet" pelo nome do produto
                         "title": {
                             "text": product_name
                         },
-                        # Força a exibição da sua imagem customizada
                         "thumbnails": [
                             {
                                 "url": thumbnail_url
@@ -314,13 +311,13 @@ if __name__ == "__main__":
         
     print("✅ Aprovado pelo Auditor. Preparando envio ao LinkedIn...")
     
-    # 4. Montagem e Envio ao LinkedIn (passando também o nome do produto para o título do card)
+    # 4. Montagem e Envio ao LinkedIn
     payload = create_linkedin_payload(
         texto_final_com_prefixo, 
         url_pesquisa_amazon, 
         AUTHOR_URN, 
         URL_IMAGEM_FIXA, 
-        semente['produto_nome']  # Isso vai substituir o "Link da internet"
+        semente['produto_nome']  
     )
     
     post_id, erro_linkedin = post_to_linkedin(payload, ACCESS_TOKEN)
@@ -328,7 +325,7 @@ if __name__ == "__main__":
     # 5. Conclusão e Notificação
     if post_id:
         print(f"🚀 Post publicado com sucesso! ID: {post_id}")
-        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes="Texto aprovado.")
+        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes="Texto aprovado e link gerado com imagem fixada.")
     else:
         print(f"❌ Falha ao publicar: {erro_linkedin}")
         enviar_email_notificacao("ERRO NO LINKEDIN", semente['tema'], texto_final_com_prefixo, erro_msg=erro_linkedin)
