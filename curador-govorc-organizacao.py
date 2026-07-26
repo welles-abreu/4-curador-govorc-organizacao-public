@@ -37,8 +37,14 @@ EMAIL_REMETENTE = "wellesmatias@gmail.com"
 EMAIL_DESTINO = "wellesmatias@gmail.com"
 AGENT_NAME = "Agente Orçamentário Multi-IA"
 
-# ⚠️ URL RAW EXATA DA IMAGEM NO SEU GITHUB (Isso garante que o LinkedIn consiga ler a imagem)
+# URL RAW EXATA DA IMAGEM NO SEU GITHUB
 URL_IMAGEM_FIXA = "https://raw.githubusercontent.com/welles-abreu/4-curador-govorc-organizacao-public/main/URL_IMAGEM_FIX.png"
+
+# 🔥 TRUQUE MÁGICO PARA O LINKEDIN: 
+# O LinkedIn corta imagens quadradas. Usamos um proxy (wsrv.nl) para redimensionar 
+# a imagem "on-the-fly" para 1200x627 (tamanho ideal do LinkedIn) adicionando bordas brancas (contain).
+url_limpa = URL_IMAGEM_FIXA.replace("https://", "")
+URL_IMAGEM_PERFEITA = f"https://wsrv.nl/?url={url_limpa}&w=1200&h=627&fit=contain&cbg=FFFFFF"
 
 # Inicialização do Cliente Gemini
 if not GEMINI_API_KEY:
@@ -111,13 +117,10 @@ class AuditResult(BaseModel):
 # ==========================================
 
 def get_daily_seed():
-    """
-    Seleciona o tema de forma sequencial com base na data (garante a rotação a cada 24 horas).
-    Só irá repetir o tema após 45 dias ininterruptos de postagem.
-    """
+    """Seleciona o tema de forma sequencial com base na data."""
     dias_desde_o_inicio = datetime.now().toordinal()
     indice = dias_desde_o_inicio % len(THEME_SEEDS)
-    print(f"🔄 Controle de Repetição: Usando índice {indice} de {len(THEME_SEEDS)} (Este índice avança automaticamente 1 vez por dia).")
+    print(f"🔄 Controle de Repetição: Usando índice {indice} de {len(THEME_SEEDS)}")
     return THEME_SEEDS[indice]
 
 def agente_gerador_texto(semente, url_pesquisa):
@@ -198,7 +201,7 @@ def agente_auditor_antifake(texto_post):
 # ==========================================
 
 def create_linkedin_payload(texto_final, original_url, author_urn, thumbnail_url, product_name):
-    """Monta o payload JSON para o LinkedIn injetando miniatura e título customizados."""
+    """Monta o payload JSON para o LinkedIn injetando miniatura perfeitamente formatada."""
     payload = {
         "author": author_urn,
         "lifecycleState": "PUBLISHED",
@@ -311,12 +314,12 @@ if __name__ == "__main__":
         
     print("✅ Aprovado pelo Auditor. Preparando envio ao LinkedIn...")
     
-    # 4. Montagem e Envio ao LinkedIn
+    # 4. Montagem e Envio ao LinkedIn usando a IMAGEM PERFEITA (redimensionada)
     payload = create_linkedin_payload(
         texto_final_com_prefixo, 
         url_pesquisa_amazon, 
         AUTHOR_URN, 
-        URL_IMAGEM_FIXA, 
+        URL_IMAGEM_PERFEITA, 
         semente['produto_nome']  
     )
     
@@ -325,7 +328,7 @@ if __name__ == "__main__":
     # 5. Conclusão e Notificação
     if post_id:
         print(f"🚀 Post publicado com sucesso! ID: {post_id}")
-        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes="Texto aprovado e link gerado com imagem fixada.")
+        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes="Texto aprovado e link gerado com imagem fixada sem cortes.")
     else:
         print(f"❌ Falha ao publicar: {erro_linkedin}")
         enviar_email_notificacao("ERRO NO LINKEDIN", semente['tema'], texto_final_com_prefixo, erro_msg=erro_linkedin)
