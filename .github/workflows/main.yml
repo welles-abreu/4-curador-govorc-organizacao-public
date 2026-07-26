@@ -1,4 +1,4 @@
-name: "Publicador Diário: Agente Multi-IA LinkedIn"on:schedule:# O Cron do GitHub Actions roda em UTC.# 06:33 UTC corresponde a exatas 03:33 da manhã no Horário de Brasília (BRT - UTC-3).- cron: '33 6 * * *'A diretiva workflow_dispatch cria um botão na interface do GitHubpara você testar ou rodar o bot manualmente quando quiser, sem precisar esperar as 03h33.workflow_dispatch:jobs:run-linkedin-ai-bot:runs-on: ubuntu-lateststeps:
+steps:
   - name: Checkout do Repositório
     uses: actions/checkout@v4
 
