@@ -122,7 +122,7 @@ def agente_auditor_antifake(texto_post):
     Responda EXCLUSIVAMENTE em formato JSON. Se o texto violar as regras, "aprovado" deve ser false e o "motivo" deve explicar a violação.
     """
     
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(
         prompt,
         generation_config=genai.GenerationConfig(
