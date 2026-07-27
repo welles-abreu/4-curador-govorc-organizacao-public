@@ -40,9 +40,7 @@ AGENT_NAME = "Agente Orçamentário Multi-IA"
 # URL RAW EXATA DA IMAGEM NO SEU GITHUB
 URL_IMAGEM_FIXA = "https://raw.githubusercontent.com/welles-abreu/4-curador-govorc-organizacao-public/main/URL_IMAGEM_FIX.png"
 
-# 🔥 TRUQUE MÁGICO PARA O LINKEDIN: 
-# O LinkedIn corta imagens quadradas. Usamos um proxy (wsrv.nl) para redimensionar 
-# a imagem "on-the-fly" para 1200x627 (tamanho ideal do LinkedIn) adicionando bordas brancas (contain).
+# Proxy (wsrv.nl) para redimensionar a imagem "on-the-fly" para 1200x627
 url_limpa = URL_IMAGEM_FIXA.replace("https://", "")
 URL_IMAGEM_PERFEITA = f"https://wsrv.nl/?url={url_limpa}&w=1200&h=627&fit=contain&cbg=FFFFFF"
 
@@ -123,9 +121,36 @@ def get_daily_seed():
     print(f"🔄 Controle de Repetição: Usando índice {indice} de {len(THEME_SEEDS)}")
     return THEME_SEEDS[indice]
 
-def agente_gerador_texto(semente, url_pesquisa):
-    """Agente 1: Cria o texto do post do zero baseado na semente."""
-    print("✍️ Agente Gerador: Escrevendo rascunho inédito...")
+def agente_sugerir_produto(tema, produtos_rejeitados):
+    """Novo Agente: Sugere um produto substituto altamente relevante se o anterior falhar na auditoria."""
+    print("💡 Agente de Produtos: Gerando uma sugestão de produto mais alinhada ao tema...")
+    
+    prompt = f"""
+    Você é um especialista em tecnologia e análise de dados. Sugira APENAS O NOME de um produto real 
+    (ex: um livro técnico específico, um equipamento de TI profissional, ou um software) 
+    que seja EXTREMAMENTE útil e perfeitamente alinhado ao tema: "{tema}".
+    
+    A sugestão deve transparecer profissionalismo absoluto.
+    """
+    if produtos_rejeitados:
+        prompt += f"\nNÃO sugira os seguintes produtos, pois já foram rejeitados: {', '.join(produtos_rejeitados)}"
+        
+    prompt += "\nResponda APENAS com o nome do produto, sem aspas, pontos finais ou explicações."
+
+    try:
+        if USE_NEW_SDK:
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+            return response.text.strip()
+        else:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            response = model.generate_content(prompt)
+            return response.text.strip()
+    except Exception as e:
+        return "Livro: Gestão Pública Orientada a Dados" # Fallback de segurança
+
+def agente_gerador_texto(semente, url_pesquisa, produto_nome):
+    """Agente 1: Cria o texto do post do zero baseado na semente e no produto."""
+    print(f"✍️ Agente Gerador: Escrevendo rascunho inédito focado em: {produto_nome}...")
     
     prompt = f"""
     Você é um Desenvolvedor Python Sênior e Especialista em Conteúdo Técnico.
@@ -137,8 +162,8 @@ def agente_gerador_texto(semente, url_pesquisa):
     3. Foco estritamente técnico, científico, focando na máquina pública, alocação de recursos e eficiência.
     4. ZERO viés político partidário ou juízo de valor sobre governos. Totalmente neutro.
     5. Uso moderado e elegante de emojis.
-    6. No final, adicione o seguinte PS exato (incluindo o link de busca formatado):
-    "PS: Para aprofundar ou melhorar seu setup de análise, recomendo: {semente['produto_nome']}. 🛒 Confira na Amazon: {url_pesquisa}"
+    6. No final, adicione o seguinte PS exato, substituindo os colchetes por uma justificativa curta (1 frase) de como o produto auxilia no contexto deste tema:
+    "PS: Para aprofundar ou melhorar seu setup de análise, recomendo: {produto_nome}. [Sua justificativa profissional curta aqui]. 🛒 Confira na Amazon: {url_pesquisa}"
     
     Gere apenas o texto do post, sem aspas, sem título, pronto para copiar e colar.
     """
@@ -155,15 +180,15 @@ def agente_gerador_texto(semente, url_pesquisa):
         return response.text.strip()
 
 def agente_auditor_antifake(texto_post):
-    """Agente 2: Revisa o texto em busca de alucinações, mentiras ou viés político."""
-    print("🕵️‍♂️ Agente Auditor: Checando alucinações e viés...")
+    """Agente 2: Revisa o texto em busca de alucinações, mentiras, viés político ou falta de profissionalismo."""
+    print("🕵️‍♂️ Agente Auditor: Checando alucinações, viés e coesão do produto...")
     
     prompt = f"""
     Você é um Auditor Sênior de Conformidade e Fact-Checker do Governo.
     Sua missão é ler o texto abaixo, que será postado no LinkedIn, e avaliá-lo segundo 3 critérios:
     1. Viés Político: Há algum elogio ou crítica a políticos, governos específicos ou partidos? (Deve ser 100% neutro).
-    2. Alucinação (Fake News): O texto cita leis que não existem, ou estatísticas inventadas exatas sem fonte? (Conceitos teóricos gerais de IA e governança são permitidos).
-    3. Profissionalismo: A linguagem é técnica e adequada para o LinkedIn?
+    2. Alucinação (Fake News): O texto cita leis que não existem, ou estatísticas inventadas exatas sem fonte? (Conceitos teóricos gerais são permitidos).
+    3. Profissionalismo e Coesão: A linguagem é técnica e adequada para o LinkedIn? A recomendação de produto no PS final faz sentido lógico e profissional com o tema discutido, ou parece totalmente aleatória/desconexa?
     
     Texto a ser analisado:
     '''
@@ -289,38 +314,70 @@ if __name__ == "__main__":
         print(f"❌ ERRO: {erro_msg}")
         sys.exit(1)
         
-    # 1. Seleciona a semente e prepara as variáveis do dia
+    # 1. Seleciona a semente base do dia
     semente = get_daily_seed()
     print(f"🎯 Tema Semente do Dia: {semente['tema']}")
     
-    # Prepara o link de pesquisa da Amazon
-    termo_busca = urllib.parse.quote_plus(semente['produto_nome'])
-    url_pesquisa_amazon = f"https://www.amazon.com.br/s?k={termo_busca}&tag=SEU_LINK_AQUI"
+    # Setup de variáveis para o loop de retentativas
+    max_tentativas = 3
+    produtos_rejeitados = []
+    produto_atual = semente['produto_nome'] # Inicia com o produto padrão da lista
     
-    # 2. Agente 1: Gera o Texto
-    texto_gerado = agente_gerador_texto(semente, url_pesquisa_amazon)
-    
-    # Insere o prefixo com a data de hoje
-    data_hoje_formatada = datetime.now().strftime("%d/%m/%Y")
-    texto_final_com_prefixo = f"Curadoria sobre Governança Orçamentária do dia ({data_hoje_formatada}):\n\n{texto_gerado}"
-    
-    # 3. Agente 2: Audita o Texto
-    resultado_auditoria = agente_auditor_antifake(texto_final_com_prefixo)
-    
-    if not resultado_auditoria.get("aprovado", False):
-        print(f"🛑 REPROVADO PELO AUDITOR: {resultado_auditoria.get('motivo')}")
+    post_aprovado = False
+    texto_final_com_prefixo = ""
+    url_pesquisa_amazon = ""
+    resultado_auditoria = None
+
+    # Loop de até 3 tentativas para aprovação na auditoria
+    for tentativa in range(1, max_tentativas + 1):
+        print(f"\n🔄 --- INICIANDO TENTATIVA {tentativa} DE {max_tentativas} ---")
+        print(f"📦 Produto em análise: {produto_atual}")
+        
+        # Prepara o link de pesquisa da Amazon com o produto atualizado
+        termo_busca = urllib.parse.quote_plus(produto_atual)
+        url_pesquisa_amazon = f"https://www.amazon.com.br/s?k={termo_busca}&tag=SEU_LINK_AQUI"
+        
+        # 2. Agente 1: Gera o Texto com o produto atual
+        texto_gerado = agente_gerador_texto(semente, url_pesquisa_amazon, produto_atual)
+        
+        # Insere o prefixo com a data de hoje
+        data_hoje_formatada = datetime.now().strftime("%d/%m/%Y")
+        texto_final_com_prefixo = f"Curadoria sobre Governança Orçamentária do dia ({data_hoje_formatada}):\n\n{texto_gerado}"
+        
+        # 3. Agente 2: Audita o Texto
+        resultado_auditoria = agente_auditor_antifake(texto_final_com_prefixo)
+        
+        if resultado_auditoria.get("aprovado", False):
+            print("✅ Aprovado pelo Auditor! Passou em todos os testes.")
+            post_aprovado = True
+            break  # Sai do loop se for aprovado
+        else:
+            motivo_reprovacao = resultado_auditoria.get('motivo', 'Sem motivo especificado')
+            print(f"🛑 REPROVADO PELO AUDITOR: {motivo_reprovacao}")
+            
+            # Adiciona o produto à lista de rejeitados
+            produtos_rejeitados.append(produto_atual)
+            
+            if tentativa < max_tentativas:
+                # Usa IA para buscar um produto NOVO que faça sentido para tentar de novo
+                produto_atual = agente_sugerir_produto(semente['tema'], produtos_rejeitados)
+            else:
+                print("❌ Falha nas 3 tentativas. Abortando execução.")
+
+    # Se saiu do loop e não foi aprovado, encerra o script com erro.
+    if not post_aprovado:
         enviar_email_notificacao("BLOQUEADO PELA AUDITORIA", semente['tema'], texto_final_com_prefixo, auditoria_detalhes=resultado_auditoria.get('motivo'))
         sys.exit(1)
         
-    print("✅ Aprovado pelo Auditor. Preparando envio ao LinkedIn...")
+    print("🚀 Preparando envio ao LinkedIn...")
     
-    # 4. Montagem e Envio ao LinkedIn usando a IMAGEM PERFEITA (redimensionada)
+    # 4. Montagem e Envio ao LinkedIn usando a IMAGEM PERFEITA (redimensionada) e o produto validado
     payload = create_linkedin_payload(
         texto_final_com_prefixo, 
         url_pesquisa_amazon, 
         AUTHOR_URN, 
         URL_IMAGEM_PERFEITA, 
-        semente['produto_nome']  
+        produto_atual  
     )
     
     post_id, erro_linkedin = post_to_linkedin(payload, ACCESS_TOKEN)
@@ -328,7 +385,7 @@ if __name__ == "__main__":
     # 5. Conclusão e Notificação
     if post_id:
         print(f"🚀 Post publicado com sucesso! ID: {post_id}")
-        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes="Texto aprovado e link gerado com imagem fixada sem cortes.")
+        enviar_email_notificacao("SUCESSO", semente['tema'], texto_final_com_prefixo, auditoria_detalhes=f"Texto aprovado (Produto final: {produto_atual}).")
     else:
         print(f"❌ Falha ao publicar: {erro_linkedin}")
         enviar_email_notificacao("ERRO NO LINKEDIN", semente['tema'], texto_final_com_prefixo, erro_msg=erro_linkedin)
